@@ -337,7 +337,10 @@ def get_all_stress_scores(
                 congestion_proxy = current_lmp - busavg_lmp
 
         # DA LMP for DART signal
-        da_lmp = fetch_da_lmp(iso, hub)
+        try:
+            da_lmp = fetch_da_lmp(iso, hub)
+        except Exception:
+            da_lmp = None
 
         score = compute_stress_score(
             iso=iso,

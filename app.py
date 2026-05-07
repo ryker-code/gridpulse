@@ -528,10 +528,18 @@ if not _data_is_fresh():
                 _extended[_iso] = {}
 
         st.write("🧮 Computing stress scores…")
-        _scores = get_all_stress_scores(_latest, _history, _extended)
+        _scores = []
+        try:
+            _scores = get_all_stress_scores(_latest, _history, _extended)
+        except Exception as e:
+            st.error(f"Error computing stress scores: {e}")
 
         st.write("📈 Building 12-hour forward forecast…")
-        _fwd = get_all_forward_stress(_scores, _history, _extended, hours=12)
+        _fwd = {}
+        try:
+            _fwd = get_all_forward_stress(_scores, _history, _extended, hours=12)
+        except Exception as e:
+            st.error(f"Error building forecast: {e}")
 
         _fetched_at = datetime.now(timezone.utc)
         st.session_state["grid_data"] = (_scores, _history, _fetched_at, _extended, _fwd)
@@ -684,15 +692,18 @@ with tab_monitor:
             _default_hl_idx = _i
             break
 
-    _hl_label = st.selectbox(
-        "Highlight hub",
-        options=_hist_labels,
-        index=_default_hl_idx,
-        key="hist_highlight_hub",
-        label_visibility="collapsed",
-    )
-    _hl_idx = _hist_labels.index(_hl_label) if _hl_label in _hist_labels else _default_hl_idx
-    HIGHLIGHT_KEY = _hist_keys[_hl_idx] if _hist_keys else ("PJM", "WESTERN HUB")
+    if _hist_labels:
+        _hl_label = st.selectbox(
+            "Highlight hub",
+            options=_hist_labels,
+            index=_default_hl_idx,
+            key="hist_highlight_hub",
+            label_visibility="collapsed",
+        )
+        _hl_idx = _hist_labels.index(_hl_label) if _hl_label in _hist_labels else _default_hl_idx
+        HIGHLIGHT_KEY = _hist_keys[_hl_idx]
+    else:
+        HIGHLIGHT_KEY = ("PJM", "WESTERN HUB")
 
     st.caption("Stress score per hub over the last 24 hours  ·  select a hub above to highlight it")
 
@@ -1238,12 +1249,17 @@ with tab_forecast:
 
         _opp_col1, _opp_col2 = st.columns([1, 2])
         with _opp_col1:
-            _opp_source = st.selectbox(
-                "Your home ISO",
-                options=list(_fwd.keys()),
-                index=0,
-                key="opp_source_iso",
-            )
+            if _fwd:
+                _opp_source = st.selectbox(
+                    "Your home ISO",
+                    options=list(_fwd.keys()),
+                    index=0,
+                    key="opp_source_iso",
+                )
+            else:
+                _opp_source = "PJM"
+                st.info("No forecast data available")
+
             _opp_thresh_src = st.slider("Alert when home stress >", 25, 90, 50, 5, key="opp_thresh_src")
             _opp_thresh_dst = st.slider("Show destinations with stress <", 10, 75, 35, 5, key="opp_thresh_dst")
 
@@ -1288,7 +1304,10 @@ with tab_forecast:
         with _sched_c2:
             _sched_dur = st.slider("Duration (hours)", 1, 12, 4, 1, key="sched_dur")
         with _sched_c3:
-            _sched_src = st.selectbox("Source ISO (baseline)", options=list(_fwd.keys()), index=0, key="sched_src_iso")
+            if _fwd:
+                _sched_src = st.selectbox("Source ISO (baseline)", options=list(_fwd.keys()), index=0, key="sched_src_iso")
+            else:
+                _sched_src = "PJM"
 
         try:
             _schedule, _total_savings, _carbon_delta = compute_batch_schedule(

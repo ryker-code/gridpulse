@@ -186,7 +186,7 @@ def get_all_forward_stress(
             current_dart_score=current_dart,
             hours=hours,
         )
-        if not df.empty:
+        if df is not None and not df.empty:
             result[iso] = df
 
     return result
